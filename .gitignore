@@ -1,0 +1,20 @@
+.terraform/
+*.tfplan
+*.tfstate
+*.tfstate.*
+backend.local.hcl
+*.auto.tfvars.json
+__pycache__/
+*.pyc
+.venv/
+
+# credentials and local state: never commit
+.env
+*.env
+local.settings.json
+*.pfx
+*.pem
+*.key
+*.bacpac
+.counterparty-venv/
+.vscode/

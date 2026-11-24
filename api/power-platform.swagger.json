@@ -1,0 +1,258 @@
+{
+  "swagger": "2.0",
+  "info": {
+    "title": "MiniBank Payments",
+    "version": "1.0.0"
+  },
+  "host": "minibank-api-bd8c986a874d.azure-api.net",
+  "basePath": "/minibank",
+  "schemes": [
+    "https"
+  ],
+  "produces": [
+    "application/json"
+  ],
+  "paths": {
+    "/payments/{paymentId}": {
+      "get": {
+        "parameters": [
+          {
+            "type": "string",
+            "name": "paymentId",
+            "in": "path",
+            "required": true
+          },
+          {
+            "type": "string",
+            "name": "x-correlation-id",
+            "in": "header",
+            "required": false
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "schema": {
+              "$ref": "#/definitions/Payment"
+            }
+          },
+          "400": {
+            "description": "Invalid payment identifier",
+            "schema": {
+              "$ref": "#/definitions/Error"
+            }
+          },
+          "404": {
+            "description": "Payment not found",
+            "schema": {
+              "$ref": "#/definitions/PaymentNotFound"
+            }
+          },
+          "503": {
+            "description": "Dependency unavailable",
+            "schema": {
+              "$ref": "#/definitions/Error"
+            }
+          }
+        },
+        "operationId": "GetPayment",
+        "summary": "Get payment by ID"
+      }
+    },
+    "/payments/{paymentId}/guidance": {
+      "get": {
+        "parameters": [
+          {
+            "type": "string",
+            "name": "paymentId",
+            "in": "path",
+            "required": true
+          },
+          {
+            "type": "string",
+            "name": "x-correlation-id",
+            "in": "header",
+            "required": false
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "schema": {
+              "$ref": "#/definitions/Guidance"
+            }
+          },
+          "400": {
+            "description": "Invalid payment identifier",
+            "schema": {
+              "$ref": "#/definitions/Error"
+            }
+          },
+          "404": {
+            "description": "Payment not found",
+            "schema": {
+              "$ref": "#/definitions/PaymentNotFound"
+            }
+          },
+          "503": {
+            "description": "Dependency unavailable",
+            "schema": {
+              "$ref": "#/definitions/Error"
+            }
+          }
+        },
+        "operationId": "ExplainHold",
+        "summary": "Explain hold"
+      }
+    }
+  },
+  "definitions": {
+    "PaymentEvent": {
+      "type": "object",
+      "properties": {
+        "eventId": {
+          "type": "string"
+        },
+        "sequenceNo": {
+          "type": "integer"
+        },
+        "status": {
+          "type": "string"
+        },
+        "reasonCode": {
+          "type": "string",
+          "x-nullable": true
+        },
+        "eventUtc": {
+          "type": "string",
+          "format": "date-time"
+        }
+      }
+    },
+    "Payment": {
+      "type": "object",
+      "properties": {
+        "found": {
+          "type": "boolean"
+        },
+        "paymentId": {
+          "type": "string"
+        },
+        "accountId": {
+          "type": "string"
+        },
+        "beneficiaryId": {
+          "type": "string"
+        },
+        "amount": {
+          "type": "string"
+        },
+        "currency": {
+          "type": "string"
+        },
+        "createdUtc": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "status": {
+          "type": "string"
+        },
+        "reasonCode": {
+          "type": "string",
+          "x-nullable": true
+        },
+        "holdReason": {
+          "type": "string",
+          "x-nullable": true
+        },
+        "asOfUtc": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "events": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/PaymentEvent"
+          }
+        }
+      }
+    },
+    "Guidance": {
+      "type": "object",
+      "properties": {
+        "found": {
+          "type": "boolean"
+        },
+        "paymentId": {
+          "type": "string"
+        },
+        "policyFound": {
+          "type": "boolean"
+        },
+        "recommendation": {
+          "type": "string"
+        },
+        "source": {
+          "type": "object",
+          "x-nullable": true,
+          "properties": {
+            "policyId": {
+              "type": "string"
+            },
+            "version": {
+              "type": "string"
+            },
+            "sectionId": {
+              "type": "string"
+            },
+            "uri": {
+              "type": "string",
+              "format": "uri"
+            },
+            "excerpt": {
+              "type": "string",
+              "description": "Exact text of the cited policy section."
+            }
+          }
+        }
+      }
+    },
+    "PaymentNotFound": {
+      "type": "object",
+      "properties": {
+        "found": {
+          "type": "boolean"
+        },
+        "paymentId": {
+          "type": "string"
+        }
+      }
+    },
+    "Error": {
+      "type": "object",
+      "properties": {
+        "error": {
+          "type": "string"
+        }
+      }
+    }
+  },
+  "securityDefinitions": {
+    "OAuth": {
+      "flow": "accessCode",
+      "type": "oauth2",
+      "tokenUrl": "https://login.microsoftonline.com/d5b48ebd-83f6-48f0-8910-983b68fd884a/oauth2/v2.0/token",
+      "scopes": {
+        "api://93c590ff-6bb4-4a38-a5ac-ba23db67ff9a/Payments.Read": "Read MiniBank payments and guidance"
+      },
+      "authorizationUrl": "https://login.microsoftonline.com/d5b48ebd-83f6-48f0-8910-983b68fd884a/oauth2/v2.0/authorize"
+    }
+  },
+  "security": [
+    {
+      "OAuth": [
+        "api://93c590ff-6bb4-4a38-a5ac-ba23db67ff9a/Payments.Read"
+      ]
+    }
+  ]
+}

@@ -1,0 +1,8 @@
+- btnCounterparty:
+    Control: Classic/Button@2.2.0
+    Properties:
+      Text: ="Counterparty investigation"
+      X: =Parent.Width - Self.Width - 40
+      Y: =45
+      Width: =240
+      OnSelect: =Navigate(scrCounterparty, ScreenTransition.None)

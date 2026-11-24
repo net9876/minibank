@@ -1,0 +1,11 @@
+# Teams approval flow
+
+Deploy the flow in the unmanaged **MiniBank Lab** solution using [Deploy-CounterpartyApproval.ps1](../../scripts/Deploy-CounterpartyApproval.ps1) and the [workflow definition](approval-flow.json). The script separates plan, draft creation, and activation. The operator receives the approval in Teams Approvals. The live definition serializes trigger runs and uses its Dataverse connection as the sole writer while a record is awaiting approval. The worker handles confirmed rows. Operator app permissions only need read on the investigation table.
+
+1. Trigger on additions and updates to **Counterparty Investigations**. Filter on `mbank_status eq 'awaiting_approval'` and `mbank_status` as the update column. Read the event row by ID and retain its current `@odata.etag`. Exit if the status has changed or `approval.flowRun` already exists.
+2. Parse `mbank_statejson`. Use the saved candidate LEIs as custom responses in **Create an approval**. Include the investigation GUID, candidate legal names, jurisdictions and their GLEIF URLs in the approval details. Configure the selected operator as the assignee. For candidate lists beyond the connector's response limit, ask the operator to enter a narrower query. Never truncate automatically to select a candidate.
+3. **Before creating** the approval, reserve the Dataverse record by setting `approval: {flowRun: <generated GUID>, expectedActor: <assignee Entra object ID>}` in the state JSON. Runs with an existing reservation exit. The approval creation action retry policy is **None**. If a run is interrupted after creating the approval, recover the existing ID from run history before changing the reservation.
+4. Save `approval.approvalId` from the Approvals connector and wait for that exact ID.
+5. Re-read the row and verify the reservation, approval ID, responder Entra object and tenant IDs, and selected LEI. Persist the decision and change both status fields to `confirmed` in one update. The worker resumes the investigation after this update.
+
+The serial flow supports one pending approval at a time. Keep the evidence table read-only for app operators. External writers should use the Python approval methods and Dataverse ETags in a separate deployment with coordination. Preserve each response ID and responder in the flow's trusted connection context.

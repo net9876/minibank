@@ -1,0 +1,28 @@
+<policies>
+  <inbound>
+    <base />
+    <validate-azure-ad-token tenant-id="${tenant}" failed-validation-httpcode="401" failed-validation-error-message="Valid MiniBank operator token required">
+      <audiences>
+        <audience>${audience}</audience>
+      </audiences>
+      <required-claims>
+        <claim name="scp" match="any" separator=" ">
+          <value>Payments.Read</value>
+        </claim>
+        <claim name="groups" match="any">
+          <value>${group}</value>
+        </claim>
+      </required-claims>
+    </validate-azure-ad-token>
+    <authentication-managed-identity resource="${backend_audience}" />
+  </inbound>
+  <backend>
+    <base />
+  </backend>
+  <outbound>
+    <base />
+  </outbound>
+  <on-error>
+    <base />
+  </on-error>
+</policies>

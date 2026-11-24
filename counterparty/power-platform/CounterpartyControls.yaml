@@ -1,0 +1,126 @@
+- lblCounterpartyTitle:
+    Control: Label@2.5.1
+    Properties:
+      Text: ="Counterparty investigation"
+      X: =40
+      Y: =24
+      Width: =350
+      Height: =48
+      Size: =22
+- btnCounterpartyBack:
+    Control: Classic/Button@2.2.0
+    Properties:
+      Text: ="Back to payments"
+      X: =Parent.Width - Self.Width - 40
+      Y: =28
+      Width: =180
+      OnSelect: =Navigate(Screen1, ScreenTransition.None)
+- lblCounterpartyInstructions:
+    Control: Label@2.5.1
+    Properties:
+      Text: ="Enter an LEI, or enter both a legal name and jurisdiction."
+      X: =40
+      Y: =80
+      Width: =750
+- txtLei:
+    Control: Classic/TextInput@2.3.2
+    Properties:
+      Default: =""
+      HintText: ="LEI"
+      AccessibleLabel: ="Legal Entity Identifier"
+      X: =40
+      Y: =124
+      Width: =280
+- txtLegalName:
+    Control: Classic/TextInput@2.3.2
+    Properties:
+      Default: =""
+      HintText: ="Legal name"
+      AccessibleLabel: ="Legal name"
+      X: =336
+      Y: =124
+      Width: =330
+- txtJurisdiction:
+    Control: Classic/TextInput@2.3.2
+    Properties:
+      Default: =""
+      HintText: ="Jurisdiction"
+      AccessibleLabel: ="Jurisdiction"
+      X: =682
+      Y: =124
+      Width: =175
+- btnStartCounterparty:
+    Control: Classic/Button@2.2.0
+    Properties:
+      Text: ="Start investigation"
+      X: =40
+      Y: =180
+      Width: =205
+      OnSelect: |-
+        =If(
+            (!IsBlank(Trim(txtLei.Text)) && (!IsBlank(Trim(txtLegalName.Text)) || !IsBlank(Trim(txtJurisdiction.Text)))) ||
+            (IsBlank(Trim(txtLei.Text)) && (IsBlank(Trim(txtLegalName.Text)) || IsBlank(Trim(txtJurisdiction.Text)))),
+            Notify("Enter an LEI, or a legal name and jurisdiction.", NotificationType.Error),
+            Set(varCounterpartyResult, Blank());
+            IfError(
+                Set(
+                    varCounterpartyRequest,
+                    Patch(
+                        'Counterparty Requests',
+                        Defaults('Counterparty Requests'),
+                        {
+                            'Request Name': "Counterparty investigation",
+                            'Request Status': "queued",
+                            'Request Input': JSON(
+                                {
+                                    lei: Upper(Trim(txtLei.Text)),
+                                    name: Trim(txtLegalName.Text),
+                                    jurisdiction: Upper(Trim(txtJurisdiction.Text))
+                                },
+                                JSONFormat.Compact
+                            )
+                        }
+                    )
+                ),
+                Notify("The investigation request could not be saved.", NotificationType.Error)
+            )
+        )
+- btnRefreshCounterparty:
+    Control: Classic/Button@2.2.0
+    Properties:
+      Text: ="Refresh result"
+      X: =261
+      Y: =180
+      Width: =175
+      DisplayMode: =If(IsBlank(varCounterpartyRequest), DisplayMode.Disabled, DisplayMode.Edit)
+      OnSelect: |-
+        =Refresh('Counterparty Requests');
+        Refresh('Counterparty Investigations');
+        Set(
+            varCounterpartyResult,
+            LookUp(
+                'Counterparty Investigations',
+                'Counterparty Investigation' = varCounterpartyRequest.'Counterparty Request'
+            )
+        )
+- lblCounterpartyResult:
+    Control: Label@2.5.1
+    Properties:
+      Text: |-
+        =If(
+            IsBlank(varCounterpartyRequest),
+            "",
+            If(
+                IsBlank(varCounterpartyResult),
+                "Request " & Text(varCounterpartyRequest.'Counterparty Request') & " is queued.",
+                varCounterpartyResult.'Investigation Status' & Char(10) &
+                varCounterpartyResult.'Investigation Evidence'
+            )
+        )
+      X: =40
+      Y: =238
+      Width: =Parent.Width - 80
+      Height: =Parent.Height - Self.Y - 24
+      Overflow: =Overflow.Scroll
+      VerticalAlign: =VerticalAlign.Top
+      Wrap: =true

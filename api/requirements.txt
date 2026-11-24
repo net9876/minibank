@@ -1,0 +1,5 @@
+azure-functions>=1.21,<2
+azure-identity>=1.19,<2
+azure-storage-blob>=12.24,<13
+mssql-python==1.17.0
+openai>=2,<3

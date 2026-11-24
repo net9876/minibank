@@ -1,0 +1,334 @@
+{
+  "$schema": "https://schema.management.azure.com/providers/Microsoft.Logic/schemas/2016-06-01/workflowdefinition.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "$connections": {
+      "defaultValue": {},
+      "type": "Object"
+    },
+    "$authentication": {
+      "defaultValue": {},
+      "type": "SecureObject"
+    }
+  },
+  "triggers": {
+    "Investigation_Awaiting_Approval": {
+      "type": "OpenApiConnectionWebhook",
+      "inputs": {
+        "host": {
+          "apiId": "/providers/Microsoft.PowerApps/apis/shared_commondataserviceforapps",
+          "connectionName": "shared_commondataserviceforapps",
+          "operationId": "SubscribeWebhookTrigger"
+        },
+        "parameters": {
+          "subscriptionRequest/message": 3,
+          "subscriptionRequest/entityname": "mbank_counterpartyinvestigation",
+          "subscriptionRequest/scope": 4,
+          "subscriptionRequest/filteringattributes": "mbank_status",
+          "subscriptionRequest/filterexpression": "mbank_status eq 'awaiting_approval'"
+        },
+        "authentication": "@parameters('$authentication')"
+      },
+      "runtimeConfiguration": {
+        "concurrency": {
+          "runs": 1
+        }
+      }
+    }
+  },
+  "actions": {
+    "Read_Investigation": {
+      "type": "OpenApiConnection",
+      "inputs": {
+        "host": {
+          "apiId": "/providers/Microsoft.PowerApps/apis/shared_commondataserviceforapps",
+          "connectionName": "shared_commondataserviceforapps",
+          "operationId": "GetItem"
+        },
+        "parameters": {
+          "entityName": "mbank_counterpartyinvestigations",
+          "recordId": "@triggerBody()?['mbank_counterpartyinvestigationid']"
+        },
+        "authentication": "@parameters('$authentication')"
+      },
+      "runAfter": {}
+    },
+    "Current_State": {
+      "type": "Compose",
+      "inputs": "@json(body('Read_Investigation')?['mbank_statejson'])",
+      "runAfter": {
+        "Read_Investigation": [
+          "Succeeded"
+        ]
+      }
+    },
+    "Awaiting_Unreserved_Approval": {
+      "type": "If",
+      "runAfter": {
+        "Current_State": [
+          "Succeeded"
+        ]
+      },
+      "expression": {
+        "and": [
+          {
+            "equals": [
+              "@outputs('Current_State')?['status']",
+              "awaiting_approval"
+            ]
+          },
+          {
+              "equals": [
+                "@empty(outputs('Current_State')?['approval'])",
+                true
+            ]
+          },
+          {
+            "greater": [
+              "@length(coalesce(outputs('Current_State')?['candidates'],json('[]')))",
+              1
+            ]
+          },
+          {
+            "lessOrEquals": [
+              "@length(coalesce(outputs('Current_State')?['candidates'],json('[]')))",
+              5
+            ]
+          }
+        ]
+      },
+      "actions": {
+        "Flow_Reservation": {
+          "type": "Compose",
+          "inputs": "@guid()",
+          "runAfter": {}
+        },
+        "Reserve": {
+          "type": "OpenApiConnection",
+          "inputs": {
+            "host": {
+              "apiId": "/providers/Microsoft.PowerApps/apis/shared_commondataserviceforapps",
+              "connectionName": "shared_commondataserviceforapps",
+              "operationId": "UpdateRecord"
+            },
+            "parameters": {
+              "entityName": "mbank_counterpartyinvestigations",
+              "recordId": "@triggerBody()?['mbank_counterpartyinvestigationid']",
+              "item/mbank_statejson": "@string(setProperty(outputs('Current_State'),'approval',setProperty(setProperty(json('{}'),'flowRun',outputs('Flow_Reservation')),'expectedActor','__APPROVER_ID__')))"
+            },
+            "authentication": "@parameters('$authentication')"
+          },
+          "runAfter": {
+            "Flow_Reservation": [
+              "Succeeded"
+            ]
+          }
+        },
+        "Choices": {
+          "type": "Select",
+          "runAfter": {
+            "Reserve": [
+              "Succeeded"
+            ]
+          },
+          "inputs": {
+            "from": "@outputs('Current_State')?['candidates']",
+            "select": "@item()?['lei']"
+          }
+        },
+        "Create_Approval": {
+          "type": "OpenApiConnection",
+          "inputs": {
+            "host": {
+              "apiId": "/providers/Microsoft.PowerApps/apis/shared_approvals",
+              "connectionName": "shared_approvals",
+              "operationId": "CreateAnApproval"
+            },
+            "parameters": {
+              "approvalType": "CustomResponse",
+              "ApprovalCreationInput/title": "MiniBank Lab test - confirm candidate LEI",
+              "ApprovalCreationInput/details": "@concat('Select the LEI for the intended public registry candidate. Synthetic lab investigation: ',triggerBody()?['mbank_counterpartyinvestigationid'],decodeUriComponent('%0A%0A'),string(outputs('Current_State')?['candidates']))",
+              "ApprovalCreationInput/assignedTo": "__APPROVER_UPN__",
+              "ApprovalCreationInput/responseOptions": "@body('Choices')",
+              "ApprovalCreationInput/enableNotifications": true,
+              "ApprovalCreationInput/enableReassignment": false
+            },
+            "authentication": "@parameters('$authentication')",
+            "retryPolicy": {
+              "type": "none"
+            }
+          },
+          "runAfter": {
+            "Choices": [
+              "Succeeded"
+            ]
+          }
+        },
+        "Bind_Approval": {
+          "type": "OpenApiConnection",
+          "inputs": {
+            "host": {
+              "apiId": "/providers/Microsoft.PowerApps/apis/shared_commondataserviceforapps",
+              "connectionName": "shared_commondataserviceforapps",
+              "operationId": "UpdateRecord"
+            },
+            "parameters": {
+              "entityName": "mbank_counterpartyinvestigations",
+              "recordId": "@triggerBody()?['mbank_counterpartyinvestigationid']",
+              "item/mbank_statejson": "@string(setProperty(outputs('Current_State'),'approval',setProperty(setProperty(setProperty(json('{}'),'flowRun',outputs('Flow_Reservation')),'expectedActor','__APPROVER_ID__'),'approvalId',body('Create_Approval')?['name'])))"
+            },
+            "authentication": "@parameters('$authentication')"
+          },
+          "runAfter": {
+            "Create_Approval": [
+              "Succeeded"
+            ]
+          }
+        },
+        "Wait_Approval": {
+          "type": "OpenApiConnectionWebhook",
+          "inputs": {
+            "host": {
+              "apiId": "/providers/Microsoft.PowerApps/apis/shared_approvals",
+              "connectionName": "shared_approvals",
+              "operationId": "WaitForAnApproval"
+            },
+            "parameters": {
+              "approvalName": "@body('Create_Approval')?['name']"
+            },
+            "authentication": "@parameters('$authentication')"
+          },
+          "runAfter": {
+            "Bind_Approval": [
+              "Succeeded"
+            ]
+          }
+        },
+        "Read_After_Approval": {
+          "type": "OpenApiConnection",
+          "inputs": {
+            "host": {
+              "apiId": "/providers/Microsoft.PowerApps/apis/shared_commondataserviceforapps",
+              "connectionName": "shared_commondataserviceforapps",
+              "operationId": "GetItem"
+            },
+            "parameters": {
+              "entityName": "mbank_counterpartyinvestigations",
+              "recordId": "@triggerBody()?['mbank_counterpartyinvestigationid']"
+            },
+            "authentication": "@parameters('$authentication')"
+          },
+          "runAfter": {
+            "Wait_Approval": [
+              "Succeeded"
+            ]
+          }
+        },
+        "Bound_State": {
+          "type": "Compose",
+          "inputs": "@json(body('Read_After_Approval')?['mbank_statejson'])",
+          "runAfter": {
+            "Read_After_Approval": [
+              "Succeeded"
+            ]
+          }
+        },
+        "Response": {
+          "type": "Compose",
+          "inputs": "@first(body('Wait_Approval')?['responses'])",
+          "runAfter": {
+            "Bound_State": [
+              "Succeeded"
+            ]
+          }
+        },
+        "Validate_Decision": {
+          "type": "If",
+          "runAfter": {
+            "Response": [
+              "Succeeded"
+            ]
+          },
+          "expression": {
+            "and": [
+              {
+                "equals": [
+                  "@outputs('Bound_State')?['status']",
+                  "awaiting_approval"
+                ]
+              },
+              {
+                "equals": [
+                  "@outputs('Bound_State')?['approval']?['flowRun']",
+                  "@outputs('Flow_Reservation')"
+                ]
+              },
+              {
+                "equals": [
+                  "@outputs('Bound_State')?['approval']?['approvalId']",
+                  "@body('Create_Approval')?['name']"
+                ]
+              },
+              {
+                "equals": [
+                  "@toLower(coalesce(outputs('Response')?['responder']?['id'],''))",
+                  "__APPROVER_ID__"
+                ]
+              },
+              {
+                "equals": [
+                  "@toLower(coalesce(outputs('Response')?['responder']?['tenantId'],''))",
+                  "__TENANT_ID__"
+                ]
+              },
+              {
+                "contains": [
+                  "@body('Choices')",
+                  "@outputs('Response')?['approverResponse']"
+                ]
+              }
+            ]
+          },
+          "actions": {
+            "Record_Decision": {
+              "type": "OpenApiConnection",
+              "inputs": {
+                "host": {
+                  "apiId": "/providers/Microsoft.PowerApps/apis/shared_commondataserviceforapps",
+                  "connectionName": "shared_commondataserviceforapps",
+                  "operationId": "UpdateRecord"
+                },
+                "parameters": {
+                  "entityName": "mbank_counterpartyinvestigations",
+                  "recordId": "@triggerBody()?['mbank_counterpartyinvestigationid']",
+                  "item/mbank_status": "confirmed",
+                  "item/mbank_statejson": "@string(setProperty(setProperty(setProperty(outputs('Bound_State'),'status','confirmed'),'confirmedLei',outputs('Response')?['approverResponse']),'decision',setProperty(setProperty(setProperty(setProperty(json('{}'),'approvalId',outputs('Bound_State')?['approval']?['approvalId']),'actor',toLower(outputs('Response')?['responder']?['id'])),'lei',outputs('Response')?['approverResponse']),'recordedAt',utcNow())))"
+                },
+                "authentication": "@parameters('$authentication')"
+              },
+              "runAfter": {}
+            }
+          },
+          "else": {
+            "actions": {
+              "Reject_Response": {
+                "type": "Terminate",
+                "runAfter": {},
+                "inputs": {
+                  "runStatus": "Failed",
+                  "runError": {
+                    "code": "ApprovalMismatch",
+                    "message": "Response did not match the investigation binding or candidate list."
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "else": {
+        "actions": {}
+      }
+    }
+  }
+}

@@ -1,0 +1,31 @@
+{
+  "documents": [
+    {
+      "policyId": "MB-BEN-001",
+      "version": "1.0",
+      "reasonCode": "BEN_VERIFICATION",
+      "validFromUtc": "2026-01-01T00:00:00Z",
+      "validToUtc": null,
+      "sectionId": "verify-beneficiary",
+      "path": "policies/BEN_VERIFICATION/1.0.md"
+    },
+    {
+      "policyId": "MB-PAY-002",
+      "version": "1.0",
+      "reasonCode": "PAYMENT_REVIEW",
+      "validFromUtc": "2026-01-01T00:00:00Z",
+      "validToUtc": null,
+      "sectionId": "review-payment",
+      "path": "policies/PAYMENT_REVIEW/1.0.md"
+    },
+    {
+      "policyId": "MB-OPS-003",
+      "version": "1.0",
+      "reasonCode": "PROCESSING_EXCEPTION",
+      "validFromUtc": "2026-01-01T00:00:00Z",
+      "validToUtc": null,
+      "sectionId": "triage-processing",
+      "path": "policies/PROCESSING_EXCEPTION/1.0.md"
+    }
+  ]
+}

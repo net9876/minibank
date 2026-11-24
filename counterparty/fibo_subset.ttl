@@ -1,0 +1,16 @@
+@prefix mb: <https://minibank.example/ontology/> .
+@prefix lei: <https://spec.edmcouncil.org/fibo/ontology/BE/LegalEntities/LEIEntities/> .
+@prefix owl: <http://www.w3.org/2002/07/owl#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix dct: <http://purl.org/dc/terms/> .
+
+mb:FiboSubset a owl:Ontology ;
+    dct:source <https://raw.githubusercontent.com/edmcouncil/fibo/170475139b0ef96df1c1616ccf1793cd769a39c0/BE/LegalEntities/LEIEntities.rdf> ;
+    owl:versionIRI <https://spec.edmcouncil.org/fibo/ontology/BE/20250301/LegalEntities/LEIEntities/> .
+lei:LEIRegisteredEntity a owl:Class .
+lei:RelationshipRecord a owl:Class .
+lei:isDirectlyConsolidatedBy a owl:ObjectProperty .
+lei:isUltimatelyConsolidatedBy a owl:ObjectProperty .
+mb:IS_DIRECTLY_CONSOLIDATED_BY rdfs:subPropertyOf lei:isDirectlyConsolidatedBy .
+mb:IS_ULTIMATELY_CONSOLIDATED_BY rdfs:subPropertyOf lei:isUltimatelyConsolidatedBy .
+mb:paidTo a owl:ObjectProperty .
